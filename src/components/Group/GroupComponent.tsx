@@ -14,12 +14,14 @@ export const GroupComponent = () => {
   const [user, setUser] = useState();
   const [lists, setLists] = useState();
   const [userGroups, setUserGroups] = useState();
+
   useEffect(() => {
     // dodavanje liste je gotovo , malo da se pocisti to
+    // ostaje edit i delete
     let first = async () => {
       const user = await pb
         .collection("users")
-        .authWithPassword("zdenka", "12345678");
+        .authWithPassword("boris", "12345678");
       setUser(user);
       try {
         const userGroups = await pb.collection("listGroups").getFullList({
@@ -67,6 +69,29 @@ export const GroupComponent = () => {
         setLists(updatedLists);
       });
   };
+
+  const handleAddNewItem = async (list) => {
+    const newListItemText = prompt("Please enter new item text");
+    const newListItem = {
+      creator: user?.record.username,
+      id: Math.random() + Date.now(),
+      text: newListItemText,
+    };
+    const updatedListData = [...list.listData, newListItem];
+    await pb
+      .collection("list")
+      .update(list.id, {
+        listData: updatedListData,
+      })
+      .then((response) => {
+        const updatedListItems = [
+          ...lists.map((list) => (list.id === response.id ? response : list)),
+        ];
+        setLists(updatedListItems);
+      })
+      .catch((e) => console.log(e));
+  };
+
   return (
     <>
       <Button className="text-white p-4 rounded-full" onClick={handleAddList}>
@@ -99,7 +124,12 @@ export const GroupComponent = () => {
                 );
               })}
               <AccordionContent className="text-center b-1">
-                <Button className="text-white p-4 rounded-full">
+                <Button
+                  className="text-white p-4 rounded-full"
+                  onClick={() => {
+                    handleAddNewItem(singleList);
+                  }}
+                >
                   Add new item
                 </Button>
               </AccordionContent>
