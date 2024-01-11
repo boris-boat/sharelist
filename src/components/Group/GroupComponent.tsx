@@ -44,10 +44,13 @@ export const GroupComponent = () => {
   }, []);
 
   const handleAddList = async () => {
+    console.log(user);
     await pb
       .collection("list")
       .create({
-        title: "Test shit",
+        title: prompt("Please enter new list title"),
+        listData: [],
+        creator: user?.record?.username,
       })
       .then(async (newList) => {
         await pb.collection("listGroups").update(userGroups[0]?.id, {
@@ -66,6 +69,7 @@ export const GroupComponent = () => {
             .map((listId) => `id ~ "${listId}"`)
             .join("||"),
         });
+        console.log(updatedLists);
         setLists(updatedLists);
       });
   };
@@ -92,6 +96,50 @@ export const GroupComponent = () => {
       .catch((e) => console.log(e));
   };
 
+  const handleEditListItem = async (item, list) => {
+    const newListItemText = prompt("Please enter new item text", item.text);
+    const updatedListItem = {
+      ...item,
+      text: newListItemText,
+    };
+    const updatedListData = [
+      ...list.listData.map((currentItem) =>
+        currentItem.id === item.id ? updatedListItem : currentItem
+      ),
+    ];
+    await pb
+      .collection("list")
+      .update(list.id, {
+        listData: updatedListData,
+      })
+      .then((res) => {
+        setLists((prev) =>
+          prev.map((currentList) =>
+            currentList.id === res.id ? res : currentList
+          )
+        );
+      });
+  };
+
+  const handleDeleteListItem = async (itemToDelete, list) => {
+    const updatedListData = [
+      ...list.listData.filter(
+        (currentItem) => currentItem.id !== itemToDelete.id
+      ),
+    ];
+    await pb
+      .collection("list")
+      .update(list.id, {
+        listData: updatedListData,
+      })
+      .then((res) => {
+        setLists((prev) =>
+          prev.map((currentList) =>
+            currentList.id === res.id ? res : currentList
+          )
+        );
+      });
+  };
   return (
     <>
       <Button className="text-white p-4 rounded-full" onClick={handleAddList}>
@@ -109,12 +157,19 @@ export const GroupComponent = () => {
                     <div className="flex justify-between text-lg">
                       <div>{item.text}</div>
                       <div>
-                        <Badge variant="secondary" className="cursor-pointer">
+                        <Badge
+                          variant="secondary"
+                          className="cursor-pointer"
+                          onClick={() => {
+                            handleEditListItem(item, singleList);
+                          }}
+                        >
                           Edit
                         </Badge>
                         <Badge
                           variant="destructive"
                           className="ml-2 cursor-pointer"
+                          onClick={() => handleDeleteListItem(item, singleList)}
                         >
                           Delete
                         </Badge>
