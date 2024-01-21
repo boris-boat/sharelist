@@ -1,3 +1,4 @@
+import { getLists, setLists } from "@/redux/listsSlice";
 import {
   Accordion,
   AccordionContent,
@@ -5,77 +6,93 @@ import {
   AccordionTrigger,
 } from "../ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import PocketBase from "pocketbase";
-import { useEffect, useState } from "react";
-
+import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
+import {
+  getGroups,
+  setCurrentGroup,
+  updateCurrentGroup,
+} from "@/redux/groupSlice";
+import { useEffect } from "react";
 export const GroupComponent = () => {
+  const user = useSelector((state) => state.user.userData);
+  const userGroups = useSelector((state) => state.group.userGroups);
+  const lists = useSelector((state) => state.lists.lists);
+  const currentGroup = useSelector((state) => state.group.currentGroup);
+  const currentGroupId = useSelector(
+    (state) => state.user?.userData?.record?.groupSelected
+  );
   const pb = new PocketBase("http://127.0.0.1:8090");
-  const [user, setUser] = useState();
-  const [lists, setLists] = useState();
-  const [userGroups, setUserGroups] = useState();
+  const dispatch = useDispatch();
+  if (!currentGroup) {
+    if (userGroups && currentGroupId)
+      dispatch(
+        setCurrentGroup(
+          userGroups?.find((group) => group.id === currentGroupId)
+        )
+      );
+    else if (userGroups && !currentGroupId) {
+      dispatch(setCurrentGroup(userGroups[0]));
+    }
+  }
 
   useEffect(() => {
-    // dodavanje liste je gotovo , malo da se pocisti to
-    // ostaje edit i delete
-    let first = async () => {
-      const user = await pb
-        .collection("users")
-        .authWithPassword("boris", "12345678");
-      setUser(user);
-      try {
-        const userGroups = await pb.collection("listGroups").getFullList({
-          filter: pb.filter(`usersParticipating.username ?= {:username}`, {
-            username: user.record.username,
-          }),
-        });
-        setUserGroups(userGroups);
-        const lists = await pb.collection("list").getFullList({
-          filter: userGroups[0].lists
-            .map((listId) => `id ~ "${listId}"`)
-            .join("||"),
-        });
-        setLists(lists);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    first();
+    dispatch(getGroups()).then(() => {
+      dispatch(getLists());
+    });
   }, []);
-
+  const handleCreateGroup = async () => {
+    const newGroupTitle = prompt("Please enter new group title");
+    try {
+      await pb
+        .collection("listGroups")
+        .create({
+          title: newGroupTitle,
+          lists: [],
+          creator: user?.record?.username,
+          usersParticipating: [user?.record?.id],
+        })
+        .then(() => dispatch(getGroups()));
+    } catch (error) {
+      console.error(error);
+    }
+  };
   const handleAddList = async () => {
-    console.log(user);
+    const newTitle = prompt("Please enter new list title");
+    if (!newTitle) {
+      return;
+    }
     await pb
       .collection("list")
       .create({
-        title: prompt("Please enter new list title"),
+        title: newTitle,
         listData: [],
         creator: user?.record?.username,
       })
       .then(async (newList) => {
-        await pb.collection("listGroups").update(userGroups[0]?.id, {
-          lists: [...userGroups[0]?.lists, newList.id],
-        });
+        console.log(currentGroup, currentGroupId, newList);
+        const updatedGroup = await pb
+          .collection("listGroups")
+          .update(currentGroup.id, {
+            lists: [...currentGroup.lists, newList.id],
+          });
+        return updatedGroup;
       })
-      .then(async () => {
-        const userGroups = await pb.collection("listGroups").getFullList({
-          filter: pb.filter(`usersParticipating.username ?= {:username}`, {
-            username: user.record.username,
-          }),
-        });
-        setUserGroups(userGroups);
+      .then(async (res) => {
         const updatedLists = await pb.collection("list").getFullList({
-          filter: userGroups[0].lists
-            .map((listId) => `id ~ "${listId}"`)
-            .join("||"),
+          filter: res.lists.map((listId) => `id ~ "${listId}"`).join("||"),
         });
-        console.log(updatedLists);
-        setLists(updatedLists);
+        dispatch(setLists(updatedLists));
+        dispatch(updateCurrentGroup(res));
       });
   };
 
   const handleAddNewItem = async (list) => {
     const newListItemText = prompt("Please enter new item text");
+    if (!newListItemText) {
+      return;
+    }
     const newListItem = {
       creator: user?.record.username,
       id: Math.random() + Date.now(),
@@ -87,17 +104,17 @@ export const GroupComponent = () => {
       .update(list.id, {
         listData: updatedListData,
       })
-      .then((response) => {
-        const updatedListItems = [
-          ...lists.map((list) => (list.id === response.id ? response : list)),
-        ];
-        setLists(updatedListItems);
+      .then(() => {
+        dispatch(getLists());
       })
       .catch((e) => console.log(e));
   };
 
   const handleEditListItem = async (item, list) => {
     const newListItemText = prompt("Please enter new item text", item.text);
+    if (!newListItemText) {
+      return;
+    }
     const updatedListItem = {
       ...item,
       text: newListItemText,
@@ -107,18 +124,10 @@ export const GroupComponent = () => {
         currentItem.id === item.id ? updatedListItem : currentItem
       ),
     ];
-    await pb
-      .collection("list")
-      .update(list.id, {
-        listData: updatedListData,
-      })
-      .then((res) => {
-        setLists((prev) =>
-          prev.map((currentList) =>
-            currentList.id === res.id ? res : currentList
-          )
-        );
-      });
+    let res = await pb.collection("list").update(list.id, {
+      listData: updatedListData,
+    });
+    dispatch(getLists());
   };
 
   const handleDeleteListItem = async (itemToDelete, list) => {
@@ -132,66 +141,99 @@ export const GroupComponent = () => {
       .update(list.id, {
         listData: updatedListData,
       })
-      .then((res) => {
-        setLists((prev) =>
-          prev.map((currentList) =>
-            currentList.id === res.id ? res : currentList
-          )
-        );
+      .then(() => {
+        dispatch(getLists());
       });
   };
   return (
     <>
-      <Button className="text-white p-4 rounded-full" onClick={handleAddList}>
-        Add new list
-      </Button>
-
       <Accordion type="multiple" className="w-full sm:w-full lg:w-1/2 text-xl">
-        {lists?.map((singleList, index) => {
-          return (
-            <AccordionItem value={`item-${index}`}>
-              <AccordionTrigger>{singleList.title}</AccordionTrigger>
-              {singleList?.listData?.map((item) => {
-                return (
-                  <AccordionContent key={item.id}>
-                    <div className="flex justify-between text-lg">
-                      <div>{item.text}</div>
-                      <div>
-                        <Badge
-                          variant="secondary"
-                          className="cursor-pointer"
-                          onClick={() => {
-                            handleEditListItem(item, singleList);
-                          }}
-                        >
-                          Edit
-                        </Badge>
-                        <Badge
-                          variant="destructive"
-                          className="ml-2 cursor-pointer"
-                          onClick={() => handleDeleteListItem(item, singleList)}
-                        >
-                          Delete
-                        </Badge>
+        {lists?.length > 0 &&
+          lists?.map((singleList, index) => {
+            return (
+              <AccordionItem value={`item-${index}`} key={index}>
+                <AccordionTrigger>{singleList.title}</AccordionTrigger>
+                {singleList?.listData?.map((item) => {
+                  return (
+                    <AccordionContent key={item.id}>
+                      <div className="flex justify-between text-lg">
+                        <div>{item.text}</div>
+                        <div className="flex w-25">
+                          <Badge
+                            variant="secondary"
+                            className="cursor-pointer"
+                            onClick={() => {
+                              handleEditListItem(item, singleList);
+                            }}
+                          >
+                            Edit
+                          </Badge>
+                          <Badge
+                            variant="destructive"
+                            className="ml-2"
+                            onClick={() =>
+                              handleDeleteListItem(item, singleList)
+                            }
+                          >
+                            Delete
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  </AccordionContent>
-                );
-              })}
-              <AccordionContent className="text-center b-1">
-                <Button
-                  className="text-white p-4 rounded-full"
-                  onClick={() => {
-                    handleAddNewItem(singleList);
-                  }}
-                >
-                  Add new item
-                </Button>
-              </AccordionContent>
-            </AccordionItem>
-          );
-        })}
+                    </AccordionContent>
+                  );
+                })}
+                <AccordionContent className="text-center b-1">
+                  <AddItemButton
+                    onClick={() => {
+                      handleAddNewItem(singleList);
+                    }}
+                  >
+                    Add new item
+                  </AddItemButton>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
       </Accordion>
+      <button
+        onClick={() => {
+          handleAddList();
+        }}
+      >
+        Add new list
+      </button>
+      <button
+        onClick={() => {
+          handleCreateGroup();
+        }}
+      >
+        Add new group
+      </button>
     </>
+  );
+};
+
+export const AddItemButton = ({ onClick }) => {
+  return (
+    <button
+      onClick={onClick}
+      title="Add New"
+      className="group cursor-pointer outline-none hover:rotate-90 duration-300"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="50px"
+        height="50px"
+        viewBox="0 0 24 24"
+        className="stroke-zinc-400 fill-none group-hover:fill-zinc-800 group-active:stroke-zinc-200 group-active:fill-zinc-600 group-active:duration-0 duration-300"
+      >
+        <path
+          d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z"
+          strokeWidth="1.5"
+        ></path>
+        <path d="M8 12H16" strokeWidth="1.5"></path>
+        <path d="M12 16V8" strokeWidth="1.5"></path>
+      </svg>
+    </button>
   );
 };
