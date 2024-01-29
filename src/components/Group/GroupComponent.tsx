@@ -15,24 +15,26 @@ import {
   updateCurrentGroup,
 } from "@/redux/groupSlice";
 import { useEffect } from "react";
+import { Button } from "../ui/button";
 export const GroupComponent = () => {
   const user = useSelector((state) => state.user.userData);
   const userGroups = useSelector((state) => state.group.userGroups);
   const lists = useSelector((state) => state.lists.lists);
   const currentGroup = useSelector((state) => state.group.currentGroup);
-  const currentGroupId = useSelector(
+  const currentGroupIdSelected = useSelector(
     (state) => state.user?.userData?.record?.groupSelected
   );
   const pb = new PocketBase("http://127.0.0.1:8090");
   const dispatch = useDispatch();
+
   if (!currentGroup) {
-    if (userGroups && currentGroupId)
+    if (userGroups && currentGroupIdSelected)
       dispatch(
         setCurrentGroup(
-          userGroups?.find((group) => group.id === currentGroupId)
+          userGroups?.find((group) => group.id === currentGroupIdSelected)
         )
       );
-    else if (userGroups && !currentGroupId) {
+    else if (userGroups && !currentGroupIdSelected) {
       dispatch(setCurrentGroup(userGroups[0]));
     }
   }
@@ -42,22 +44,7 @@ export const GroupComponent = () => {
       dispatch(getLists());
     });
   }, []);
-  const handleCreateGroup = async () => {
-    const newGroupTitle = prompt("Please enter new group title");
-    try {
-      await pb
-        .collection("listGroups")
-        .create({
-          title: newGroupTitle,
-          lists: [],
-          creator: user?.record?.username,
-          usersParticipating: [user?.record?.id],
-        })
-        .then(() => dispatch(getGroups()));
-    } catch (error) {
-      console.error(error);
-    }
-  };
+
   const handleAddList = async () => {
     const newTitle = prompt("Please enter new list title");
     if (!newTitle) {
@@ -71,7 +58,6 @@ export const GroupComponent = () => {
         creator: user?.record?.username,
       })
       .then(async (newList) => {
-        console.log(currentGroup, currentGroupId, newList);
         const updatedGroup = await pb
           .collection("listGroups")
           .update(currentGroup.id, {
@@ -86,6 +72,15 @@ export const GroupComponent = () => {
         dispatch(setLists(updatedLists));
         dispatch(updateCurrentGroup(res));
       });
+  };
+
+  const deleteList = async (listToDelete) => {
+    const res = await pb.collection("list").delete(listToDelete.id);
+    if (res) {
+      dispatch(getGroups()).then(() => {
+        dispatch(getLists());
+      });
+    } else return;
   };
 
   const handleAddNewItem = async (list) => {
@@ -183,32 +178,37 @@ export const GroupComponent = () => {
                   );
                 })}
                 <AccordionContent className="text-center b-1">
-                  <AddItemButton
-                    onClick={() => {
-                      handleAddNewItem(singleList);
-                    }}
-                  >
-                    Add new item
-                  </AddItemButton>
+                  <div className="flex justify-between ">
+                    <AddItemButton
+                      onClick={() => {
+                        handleAddNewItem(singleList);
+                      }}
+                    >
+                      Add new item
+                    </AddItemButton>
+                    <Button onClick={() => deleteList(singleList)}>
+                      Delete this list
+                    </Button>
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             );
           })}
       </Accordion>
-      <button
-        onClick={() => {
-          handleAddList();
-        }}
-      >
-        Add new list
-      </button>
-      <button
-        onClick={() => {
-          handleCreateGroup();
-        }}
-      >
-        Add new group
-      </button>
+      {currentGroup ? (
+        <Button
+          className="mt-5 w-1/2 mx-auto"
+          onClick={() => {
+            handleAddList();
+          }}
+        >
+          Add new list
+        </Button>
+      ) : (
+        <h2 className="mx-auto mt-5">
+          Please do create a group to get started
+        </h2>
+      )}
     </>
   );
 };

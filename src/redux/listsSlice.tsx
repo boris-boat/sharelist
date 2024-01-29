@@ -38,9 +38,3 @@ export const listsSlice = createSlice({
 export const { setLists } = listsSlice.actions;
 
 export default listsSlice.reducer;
-// const lists = await pb.collection("list").getFullList({
-//   filter: userGroups[0].lists
-//     .map((listId) => `id ~ "${listId}"`)
-//     .join("||"),
-// });
-// setLists(lists);

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { configureStore } from "@reduxjs/toolkit";
 import userReducer from "./userSlice";
 import groupReducer from "./groupSlice";

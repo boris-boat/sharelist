@@ -20,7 +20,6 @@ export const groupSlice = createSlice({
   initialState: {},
   reducers: {
     setCurrentGroup(state, action) {
-      console.log("payload", action.payload);
       state.currentGroup = action.payload;
     },
     updateCurrentGroup(state, action) {
