@@ -4,4 +4,5 @@ export const initialState: any = {
   lists: [],
   loading: false,
   error: undefined,
+  isModalOpen: false,
 };

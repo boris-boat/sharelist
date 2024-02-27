@@ -24,6 +24,7 @@ import {
   updateCurrentGroup,
 } from "@/redux/groupSlice";
 import { getLists } from "@/redux/listsSlice";
+import { setIsOpen } from "@/redux/modalSlice";
 
 export const Header = () => {
   const navigate = useNavigate();
@@ -31,63 +32,6 @@ export const Header = () => {
   const userGroups = useSelector((state) => state.group.userGroups);
   const currentGroup = useSelector((state) => state.group.currentGroup);
   const dispatch = useDispatch();
-
-  const handleAddNewUserToGroup = async () => {
-    const newUserId = prompt("Enter new user id");
-    try {
-      const userToAdd = await pb
-        .collection("users")
-        .getFirstListItem(`id = "${newUserId}"`);
-
-      if (userToAdd.id) {
-        if (currentGroup.usersParticipating.includes(userToAdd.id)) {
-          alert("User already in group!");
-          return;
-        }
-        return pb
-          .collection("listGroups")
-          .update(currentGroup.id, {
-            usersParticipating: [
-              ...currentGroup.usersParticipating,
-              userToAdd.id,
-            ],
-          })
-          .then((res) => {
-            dispatch(setCurrentGroup(res));
-          });
-      }
-    } catch (error) {
-      alert("No user");
-      return;
-    }
-  };
-
-  const handleDeleteGroup = async () => {
-    await pb
-      .collection("listGroups")
-      .delete(currentGroup.id)
-      .then(() => dispatch(getGroups()))
-      .finally(() => dispatch(setCurrentGroup(userGroups[0])));
-  };
-
-  const handleCreateGroup = async () => {
-    const newGroupTitle = prompt("Please enter new group title");
-    if (newGroupTitle) {
-      try {
-        await pb
-          .collection("listGroups")
-          .create({
-            title: newGroupTitle,
-            lists: [],
-            creator: user?.record?.username,
-            usersParticipating: [user?.record?.id],
-          })
-          .then(() => dispatch(getGroups()));
-      } catch (error) {
-        console.error(error);
-      }
-    } else return;
-  };
 
   const updateSelectedGroup = async (e) => {
     await pb.collection("users").update(user?.record?.id, {
@@ -123,13 +67,19 @@ export const Header = () => {
                 updateSelectedGroup(e);
               }}
             >
-              <div className="flex items-center gap-5">
-                <span>Select group : </span>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder={currentGroup?.title} />
-                </SelectTrigger>
-              </div>
-
+              {userGroups.length === 0 ? (
+                <div className="text-center">
+                  To select groups , please create group first in the settings
+                  menu
+                </div>
+              ) : (
+                <div className="flex items-center gap-5">
+                  <span>Select group : </span>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder={currentGroup?.title} />
+                  </SelectTrigger>
+                </div>
+              )}
               <SelectContent>
                 {userGroups?.map((group) => {
                   return (
@@ -141,19 +91,9 @@ export const Header = () => {
               </SelectContent>
             </Select>
             <div className="gap-2 flex flex-col mt-5">
-              <Button onClick={handleAddNewUserToGroup}>
-                Add new user to this group
+              <Button onClick={() => dispatch(setIsOpen(true))}>
+                Settings
               </Button>
-
-              <Button onClick={handleDeleteGroup}>Delete current group</Button>
-              <Button
-                onClick={() => {
-                  handleCreateGroup();
-                }}
-              >
-                Add new group
-              </Button>
-
               <Button
                 onClick={() => {
                   pb.authStore.clear();

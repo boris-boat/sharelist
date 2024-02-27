@@ -6,7 +6,6 @@ import {
   AccordionTrigger,
 } from "../ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import PocketBase from "pocketbase";
 import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import {
@@ -14,8 +13,9 @@ import {
   setCurrentGroup,
   updateCurrentGroup,
 } from "@/redux/groupSlice";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
+import { pb } from "@/lib/pb";
 export const GroupComponent = () => {
   const user = useSelector((state) => state.user.userData);
   const userGroups = useSelector((state) => state.group.userGroups);
@@ -24,9 +24,7 @@ export const GroupComponent = () => {
   const currentGroupIdSelected = useSelector(
     (state) => state.user?.userData?.record?.groupSelected
   );
-  const pb = new PocketBase("http://127.0.0.1:8090");
   const dispatch = useDispatch();
-
   if (!currentGroup) {
     if (userGroups && currentGroupIdSelected)
       dispatch(
@@ -38,12 +36,11 @@ export const GroupComponent = () => {
       dispatch(setCurrentGroup(userGroups[0]));
     }
   }
-
   useEffect(() => {
     dispatch(getGroups()).then(() => {
       dispatch(getLists());
     });
-  }, []);
+  }, [dispatch]);
 
   const handleAddList = async () => {
     const newTitle = prompt("Please enter new list title");
@@ -58,11 +55,13 @@ export const GroupComponent = () => {
         creator: user?.record?.username,
       })
       .then(async (newList) => {
+        console.log(currentGroup, newList);
         const updatedGroup = await pb
           .collection("listGroups")
           .update(currentGroup.id, {
             lists: [...currentGroup.lists, newList.id],
           });
+        console.log(updatedGroup);
         return updatedGroup;
       })
       .then(async (res) => {
@@ -140,6 +139,7 @@ export const GroupComponent = () => {
         dispatch(getLists());
       });
   };
+
   return (
     <>
       <Accordion type="multiple" className="w-full sm:w-full lg:w-1/2 text-xl">

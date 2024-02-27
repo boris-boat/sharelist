@@ -8,13 +8,15 @@ export const getLists = createAsyncThunk(
     if (currentState.group?.currentGroup?.lists.length === 0) {
       return [];
     }
-
-    const lists = await pb.collection("list").getFullList({
-      filter: currentState.group?.currentGroup?.lists
-        .map((listId) => `id = '${listId}'`)
-        .join("||"),
-    });
-    return lists;
+    if (currentState.group.currentGroup.lists) {
+      const lists = await pb.collection("list").getFullList({
+        filter: currentState.group?.currentGroup?.lists
+          .map((listId) => `id = '${listId}'`)
+          .join("||"),
+      });
+      return lists;
+    }
+    return;
   }
 );
 

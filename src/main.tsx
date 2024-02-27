@@ -9,12 +9,14 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import userReducer from "./redux/userSlice";
 import groupReducer from "./redux/groupSlice";
 import listsReducer from "./redux/listsSlice";
+import modalReducer from "./redux/modalSlice";
 import { LoginComponent } from "./components/Login/LoginComponent.tsx";
 const store = configureStore({
   reducer: combineReducers({
     user: userReducer,
     group: groupReducer,
     lists: listsReducer,
+    modal: modalReducer,
   }),
 });
 const router = createBrowserRouter([
