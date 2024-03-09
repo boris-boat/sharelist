@@ -30,6 +30,7 @@ export const groupSlice = createSlice({
     builder
       .addCase(getGroups.pending, (state, action) => {})
       .addCase(getGroups.fulfilled, (state, action) => {
+        //2 iste grupe su bagovite
         state.userGroups = action.payload;
       })
       .addCase(getGroups.rejected, (state, action) => {});

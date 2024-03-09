@@ -39,7 +39,13 @@ export const Header = () => {
     });
   };
   useEffect(() => {
+    //ostaje group selected posle delete
     const run = async () => {
+      if (userGroups?.length === 0) {
+        await pb.collection("users").update(user?.record?.id, {
+          groupSelected: undefined,
+        });
+      }
       dispatch(getGroups()).then(() => {
         dispatch(getLists());
       });
@@ -73,12 +79,17 @@ export const Header = () => {
                   menu
                 </div>
               ) : (
-                <div className="flex items-center gap-5">
-                  <span>Select group : </span>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder={currentGroup?.title} />
-                  </SelectTrigger>
-                </div>
+                <>
+                  <div className="flex items-center gap-5">
+                    <span>Select group : </span>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder={currentGroup?.title} />
+                    </SelectTrigger>
+                  </div>
+                  {currentGroup?.id ? (
+                    <div>Selected group ID : {currentGroup?.id}</div>
+                  ) : null}
+                </>
               )}
               <SelectContent>
                 {userGroups?.map((group) => {

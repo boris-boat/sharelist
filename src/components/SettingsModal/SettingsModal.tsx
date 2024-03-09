@@ -20,7 +20,7 @@ export const SettingsModal = () => {
   const [groupSettingsData, setGroupSettingsData] = useState({
     newGroupTitle: "",
     newUserID: "",
-    groupNameToDelete: "",
+    groupIdToDelete: "",
   });
   const dispatch = useDispatch();
   const isOpen = useSelector((state) => state.modal.isOpen);
@@ -83,22 +83,32 @@ export const SettingsModal = () => {
     }
   };
   const handleDeleteGroup = async () => {
-    const group = await pb
-      .collection("listGroups")
-      .getFirstListItem(`title = "${groupSettingsData.groupNameToDelete}"`);
-    if (group.id && group.creator === user.record.username) {
+    let group;
+    try {
+      group = await pb
+        .collection("listGroups")
+        .getFirstListItem(`id = "${groupSettingsData.groupIdToDelete}"`);
+    } catch (error) {
+      alert("Error looking up group id.");
+      return;
+    }
+    if (group?.id && group?.creator === user.record.username) {
+      group.lists.forEach(async (list: string) => {
+        await pb.collection("list").delete(list);
+      });
+
       await pb
         .collection("listGroups")
         .delete(group.id)
         .then(() => dispatch(getGroups()))
-        .finally(() => dispatch(setCurrentGroup(userGroups[0])));
+        .finally(() => dispatch(setCurrentGroup(undefined)));
     } else {
       alert("Invalid group name or user is not owner");
       return;
     }
     setGroupSettingsData((prev) => ({
       ...prev,
-      groupNameToDelete: "",
+      groupIdToDelete: "",
     }));
   };
   return (
@@ -134,62 +144,59 @@ export const SettingsModal = () => {
                 </Button>
               </div>
             </div>
-            <div className="flex justify-between w-1/1">
-              <div className="setting-desc">
-                Add new user to {currentGroup?.title}
-              </div>
-              <div className="flex grow justify-between">
-                <Input
-                  type="text"
-                  placeholder="User ID"
-                  className="grow mx-5"
-                  value={groupSettingsData.newUserID}
-                  onChange={(e) => {
-                    setGroupSettingsData((prev) => ({
-                      ...prev,
-                      newUserID: e.target.value,
-                    }));
-                  }}
-                />
-                <Button
-                  onClick={handleAddNewUserToGroup}
-                  disabled={groupSettingsData.newUserID === ""}
-                >
-                  Add
-                </Button>
-              </div>
-            </div>
-            <div className="flex justify-between w-1/1">
-              <div className="setting-desc">Delete group</div>
-              <div className="flex grow justify-between">
-                {userGroups?.length === 0 ? (
-                  <div className="mx-auto">
-                    No groups belonging to this user
+            {userGroups?.length > 0 &&
+            currentGroup?.creator === user.record.username ? (
+              <>
+                <div className="flex justify-between w-1/1">
+                  <div className="setting-desc">
+                    Add new user to {currentGroup?.title}
                   </div>
-                ) : (
-                  <>
+                  <div className="flex grow justify-between">
                     <Input
                       type="text"
-                      placeholder="Group name"
+                      placeholder="User ID"
                       className="grow mx-5"
-                      value={groupSettingsData.groupNameToDelete}
+                      value={groupSettingsData.newUserID}
                       onChange={(e) => {
                         setGroupSettingsData((prev) => ({
                           ...prev,
-                          groupNameToDelete: e.target.value,
+                          newUserID: e.target.value,
+                        }));
+                      }}
+                    />
+                    <Button
+                      onClick={handleAddNewUserToGroup}
+                      disabled={groupSettingsData.newUserID === ""}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex justify-between w-1/1">
+                  <div className="setting-desc">Delete group</div>
+                  <div className="flex grow justify-between">
+                    <Input
+                      type="text"
+                      placeholder="Group ID"
+                      className="grow mx-5"
+                      value={groupSettingsData.groupIdToDelete}
+                      onChange={(e) => {
+                        setGroupSettingsData((prev) => ({
+                          ...prev,
+                          groupIdToDelete: e.target.value,
                         }));
                       }}
                     />
                     <Button
                       onClick={handleDeleteGroup}
-                      disabled={groupSettingsData.groupNameToDelete === ""}
+                      disabled={groupSettingsData.groupIdToDelete === ""}
                     >
                       Delete
                     </Button>
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
+                </div>
+              </>
+            ) : null}
           </TabsContent>
         </Tabs>
 

@@ -47,36 +47,39 @@ export const GroupComponent = () => {
     if (!newTitle) {
       return;
     }
-    await pb
-      .collection("list")
-      .create({
-        title: newTitle,
-        listData: [],
-        creator: user?.record?.username,
-      })
-      .then(async (newList) => {
-        console.log(currentGroup, newList);
-        const updatedGroup = await pb
-          .collection("listGroups")
-          .update(currentGroup.id, {
-            lists: [...currentGroup.lists, newList.id],
+    try {
+      pb.collection("list")
+        .create({
+          title: newTitle,
+          listData: [],
+          creator: user?.record?.username,
+        })
+        .then(async (newList) => {
+          const updatedGroup = await pb
+            .collection("listGroups")
+            .update(currentGroup.id, {
+              lists: [...currentGroup.lists, newList.id],
+            });
+          return updatedGroup;
+        })
+        .then(async (res) => {
+          const updatedLists = await pb.collection("list").getFullList({
+            filter: res.lists.map((listId) => `id ~ "${listId}"`).join("||"),
           });
-        console.log(updatedGroup);
-        return updatedGroup;
-      })
-      .then(async (res) => {
-        const updatedLists = await pb.collection("list").getFullList({
-          filter: res.lists.map((listId) => `id ~ "${listId}"`).join("||"),
+          dispatch(setLists(updatedLists));
+          dispatch(updateCurrentGroup(res));
         });
-        dispatch(setLists(updatedLists));
-        dispatch(updateCurrentGroup(res));
-      });
+    } catch (error) {
+      console.log("[Error creating list] : ", error);
+    }
   };
 
   const deleteList = async (listToDelete) => {
     const res = await pb.collection("list").delete(listToDelete.id);
     if (res) {
-      dispatch(getGroups()).then(() => {
+      dispatch(getGroups()).then((res) => {
+        console.log(res);
+        dispatch(updateCurrentGroup(res.payload[0]));
         dispatch(getLists());
       });
     } else return;
@@ -143,57 +146,58 @@ export const GroupComponent = () => {
   return (
     <>
       <Accordion type="multiple" className="w-full sm:w-full lg:w-1/2 text-xl">
-        {lists?.length > 0 &&
-          lists?.map((singleList, index) => {
-            return (
-              <AccordionItem value={`item-${index}`} key={index}>
-                <AccordionTrigger>{singleList.title}</AccordionTrigger>
-                {singleList?.listData?.map((item) => {
-                  return (
-                    <AccordionContent key={item.id}>
-                      <div className="flex justify-between text-lg">
-                        <div>{item.text}</div>
-                        <div className="flex w-25">
-                          <Badge
-                            variant="secondary"
-                            className="cursor-pointer"
-                            onClick={() => {
-                              handleEditListItem(item, singleList);
-                            }}
-                          >
-                            Edit
-                          </Badge>
-                          <Badge
-                            variant="destructive"
-                            className="ml-2"
-                            onClick={() =>
-                              handleDeleteListItem(item, singleList)
-                            }
-                          >
-                            Delete
-                          </Badge>
+        {lists?.length > 0 && currentGroup
+          ? lists?.map((singleList, index) => {
+              return (
+                <AccordionItem value={`item-${index}`} key={index}>
+                  <AccordionTrigger>{singleList.title}</AccordionTrigger>
+                  {singleList?.listData?.map((item) => {
+                    return (
+                      <AccordionContent key={item.id}>
+                        <div className="flex justify-between text-lg">
+                          <div>{item.text}</div>
+                          <div className="flex w-25">
+                            <Badge
+                              variant="secondary"
+                              className="cursor-pointer"
+                              onClick={() => {
+                                handleEditListItem(item, singleList);
+                              }}
+                            >
+                              Edit
+                            </Badge>
+                            <Badge
+                              variant="destructive"
+                              className="ml-2"
+                              onClick={() =>
+                                handleDeleteListItem(item, singleList)
+                              }
+                            >
+                              Delete
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    </AccordionContent>
-                  );
-                })}
-                <AccordionContent className="text-center b-1">
-                  <div className="flex justify-between ">
-                    <AddItemButton
-                      onClick={() => {
-                        handleAddNewItem(singleList);
-                      }}
-                    >
-                      Add new item
-                    </AddItemButton>
-                    <Button onClick={() => deleteList(singleList)}>
-                      Delete this list
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
+                      </AccordionContent>
+                    );
+                  })}
+                  <AccordionContent className="text-center b-1">
+                    <div className="flex justify-between ">
+                      <Button
+                        onClick={() => {
+                          handleAddNewItem(singleList);
+                        }}
+                      >
+                        Add new item
+                      </Button>
+                      <Button onClick={() => deleteList(singleList)}>
+                        Delete this list
+                      </Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })
+          : null}
       </Accordion>
       {currentGroup ? (
         <Button
@@ -210,30 +214,5 @@ export const GroupComponent = () => {
         </h2>
       )}
     </>
-  );
-};
-
-export const AddItemButton = ({ onClick }) => {
-  return (
-    <button
-      onClick={onClick}
-      title="Add New"
-      className="group cursor-pointer outline-none hover:rotate-90 duration-300"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="50px"
-        height="50px"
-        viewBox="0 0 24 24"
-        className="stroke-zinc-400 fill-none group-hover:fill-zinc-800 group-active:stroke-zinc-200 group-active:fill-zinc-600 group-active:duration-0 duration-300"
-      >
-        <path
-          d="M12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22Z"
-          strokeWidth="1.5"
-        ></path>
-        <path d="M8 12H16" strokeWidth="1.5"></path>
-        <path d="M12 16V8" strokeWidth="1.5"></path>
-      </svg>
-    </button>
   );
 };
